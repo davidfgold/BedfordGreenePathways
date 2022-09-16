@@ -128,9 +128,9 @@ def plot_selected_tree_maps(rob_idx, time_period, factor1_idx, factor2_idx, sat_
     '''
 
     # load rdm file
-    rdm_factors = np.loadtxt('input_data/DU_Factors.csv', delimiter=',')
+    rdm_factors = np.loadtxt('DU_Factors.csv', delimiter=',')
 
-    RDM_objectives = np.loadtxt('input_data/' + time_period + '_performance.csv',
+    RDM_objectives = np.loadtxt(time_period + '_performance.csv',
                                 delimiter=',')
 
     #indiv_robustness = np.loadtxt('../results/DU_reevaluation/robustness_form3_' + time_period + '.csv', delimiter=',')
@@ -192,8 +192,8 @@ def plot_selected_tree_maps(rob_idx, time_period, factor1_idx, factor2_idx, sat_
                  ' (' + str(int(feature_importances[factor1_idx] * 100)) + '%)'
         ylabel = rdm_names[factor2_idx] + \
                  ' (' + str(int(feature_importances[factor2_idx] * 100)) + '%)'
-        ax.set_xlabel(xlabel, fontsize=8)
-        ax.set_ylabel(ylabel, fontsize=8)
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.set_ylabel(ylabel, fontsize=12)
 
         ax.set_xlim([min(selected_factors[:, 0]), max(selected_factors[:, 0])])
         ax.set_ylim([min(selected_factors[:, 1]), max(selected_factors[:, 1])])
@@ -256,3 +256,157 @@ def get_factor_importances(satisficing, rdm_factors, n_trees, tree_depth, crit_i
     feature_importances = deepcopy(gbc.feature_importances_)
 
     return feature_importances
+
+
+def open_exploration(utility, objective, time_period, factor1, factor2, ax):
+    '''
+    Performs gbc classification and plots a factor map
+
+    inputs:
+        utility: str, the name of the utility to be plotted (Bedford or Greene)
+        objective: str, the name of the objective to be plotted
+        time_period: str, "Long_term", "Mid_term" or "Short_term"
+        factor1: str, the name of first factor to predict performance with
+        factor2: str, the name of the second factor to predict performance with
+        ax: the axis object to be plotted on
+    '''
+
+
+    # process and load data
+
+    if utility == "Bedford":
+        if objective == "All" or objective == "all":
+            rob_idx = 5
+            print('Factor map for Bedford, all factors')
+        if objective == "Reliability" or objective == "Rel" or objective == "reliability" or objective == "rel":
+            rob_idx = 0
+            print('Factor map for Bedford, reliability')
+        if objective == "RF" or objective == "Restriction Frequency" or objective == "rf" or objective == "restriction frequency":
+            rob_idx = 1
+            print('Factor map for Bedford, restriction frequency')
+        if objective == "PFC" or objective == "Peak Financial Cost" or objective == "pfc" or objective == "peak financial cost":
+            rob_idx = 2
+            print('Factor map for Bedford, peak financial cost')
+        if objective == "WCC" or objective == "Worst Case Cost" or objective == "worst case cost" or objective == 'wcc':
+            rob_idx = 3
+            print('Factor map for Bedford, worst case cost')
+        if objective == "UC" or objective == "Unit Cost" or objective == "uc" or objective == "unit cost":
+            rob_idx = 4
+            print('Factor map for Bedford, unit cost')
+    elif utility == "Greene":
+        if objective == "All" or objective == "all":
+            rob_idx = 11
+            print('Factor map for Greene, all factors')
+        if objective == "Reliability" or objective == "Rel" or objective == "reliability" or objective == "rel":
+            rob_idx = 6
+            print('Factor map for Greene, reliability')
+        if objective == "RF" or objective == "Restriction Frequency" or objective == "rf" or objective == "restriction frequency":
+            rob_idx = 7
+            print('Factor map for Greene, restriction frequency')
+        if objective == "PFC" or objective == "Peak Financial Cost" or objective == "pfc" or objective == "peak financial cost":
+            rob_idx = 8
+            print('Factor map for Greene, peak financial cost')
+        if objective == "WCC" or objective == "Worst Case Cost" or objective == "worst case cost" or objective == 'wcc':
+            rob_idx = 9
+            print('Factor map for Greene, worst case cost')
+        if objective == "UC" or objective == "Unit Cost" or objective == "uc" or objective == "unit cost":
+            rob_idx = 10
+            print('Factor map for Greene, unit cost')
+    else:
+        print("Utility must be either 'Bedford' or 'Greene'")
+        return
+
+    # load rdm file
+    rdm_factors = np.loadtxt('DU_Factors.csv', delimiter=',')
+
+    RDM_objectives = np.loadtxt(time_period + '_performance.csv',
+                                delimiter=',')
+
+    #indiv_robustness = np.loadtxt('../results/DU_reevaluation/robustness_form3_' + time_period + '.csv', delimiter=',')
+    robustness = np.loadtxt(time_period + '_robustness.csv', delimiter=',')
+    indiv_robustness = robustness[rob_idx]
+    sat_crit = [.98, .2, .8, .1, 5]
+    SD_input = create_sd_input(RDM_objectives, sat_crit)
+
+
+    rdm_names = ['Near-term demand\ngrowth scaling', 'Mid-term demand\ngrowth scaling',
+                 'Long-term demand growth',
+                 'Bond term multiplier', 'Bond interest multiplier',
+                 'Discount rate multiplier', 'Restriction\n effectiveness',
+                 'Permitting time multiplier', 'Construction\n time multiplier',
+                 'Inflow Amplitude', 'Inflow frequency', 'Inflow phase', 'Average Demand Growth']
+
+    # Dictionary with DU factor Keys
+    DU_Factors = {'D1': 0, 'D2': 1, 'D3': 2, 'BT': 3, 'BM': 4, 'DR': 5, 'RE': 6,'PM': 7, 'CT': 7, 'IA': 9,
+            'IF': 10, 'IP': 11}
+
+    factor1_idx = DU_Factors[factor1]
+    factor2_idx = DU_Factors[factor2]
+
+    if indiv_robustness < 0.9999:
+        gbc, gbc_2factors, most_important_rdm_factors, \
+        feature_importances = boosted_tree_sd(SD_input, rdm_factors, 500, 4, \
+                                              rob_idx)
+
+        # predict across 2D features space
+        gbc_2factors = GradientBoostingClassifier(n_estimators=500,
+                                                  learning_rate=0.1,
+                                                  max_depth=4)
+
+        selected_factors = rdm_factors[:, [factor1_idx, factor2_idx]]
+        gbc_2factors.fit(selected_factors, SD_input[rob_idx])
+
+        # plot prediction contours
+        x_data = selected_factors[:, 0]
+        y_data = selected_factors[:, 1]
+
+        x_min, x_max = (x_data.min(), x_data.max())
+        y_min, y_max = (y_data.min(), y_data.max())
+
+        xx, yy = np.meshgrid(np.arange(x_min, x_max * 1.001, (x_max - x_min) / 100),
+                             np.arange(y_min, y_max * 1.001, (y_max - y_min) / 100))
+
+        dummy_points = list(zip(xx.ravel(), yy.ravel()))
+
+        z = gbc_2factors.predict_proba(dummy_points)[:, 1]
+        z[z < 0] = 0.
+        z = z.reshape(xx.shape)
+
+        ax.contourf(xx, yy, z, [0, 0.9, 1.], cmap='RdBu',
+                    alpha=.6, vmin=0.35, vmax=1.1)
+        ax.scatter(selected_factors[:, 0], selected_factors[:, 1], \
+                   c=SD_input[rob_idx], cmap='Reds_r', edgecolor='grey',
+                   alpha=.6, s=15, linewidth=.5)
+        xlabel = rdm_names[factor1_idx] + \
+                 ' (' + str(int(feature_importances[factor1_idx] * 100)) + '%)'
+        ylabel = rdm_names[factor2_idx] + \
+                 ' (' + str(int(feature_importances[factor2_idx] * 100)) + '%)'
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.set_ylabel(ylabel, fontsize=12)
+
+        ax.set_xlim([min(selected_factors[:, 0]), max(selected_factors[:, 0])])
+        ax.set_ylim([min(selected_factors[:, 1]), max(selected_factors[:, 1])])
+
+    else:
+        # plot prediction contours
+        x_data = rdm_factors[:, factor1_idx]
+        y_data = rdm_factors[:, factor2_idx]
+
+        x_min, x_max = (x_data.min(), x_data.max())
+        y_min, y_max = (y_data.min(), y_data.max())
+
+        xx, yy = np.meshgrid(np.arange(x_min, x_max * 1.001, (x_max - x_min) / 100),
+                             np.arange(y_min, y_max * 1.001, (y_max - y_min) / 100))
+
+        dummy_points = list(zip(xx.ravel(), yy.ravel()))
+
+        z = np.ones(len(xx) ** 2)
+        z = z.reshape(xx.shape)
+        ax.contourf(xx, yy, z, [0, .9, 1.], cmap='RdBu',
+                    alpha=.6, vmin=0., vmax=1.1)
+
+        ax.scatter(rdm_factors[:, factor1_idx], rdm_factors[:, factor2_idx], c='white', edgecolor='grey', alpha=.6, s=15, linewidth=.5)
+        ax.set_xlabel(rdm_names[factor1_idx] + '(0%)', fontsize=12)
+        ax.set_ylabel(rdm_names[factor2_idx] + '(0%)', fontsize=12)
+        ax.set_xlim([min(rdm_factors[:, factor1_idx]), max(rdm_factors[:, factor1_idx])])
+        ax.set_ylim([min(rdm_factors[:, factor2_idx]), max(rdm_factors[:, factor2_idx])])
