@@ -243,15 +243,13 @@ def get_factor_importances(satisficing, rdm_factors, n_trees, tree_depth, crit_i
 
     '''
 
-    if satisficing[crit_idx] > .999:
-        feature_importances = np.zeros(13)
-    else:
-        gbc = GradientBoostingClassifier(n_estimators=n_trees,
-                                         learning_rate=0.1,
-                                         max_depth=tree_depth)
 
-        gbc.fit(rdm_factors, satisficing[crit_idx])
-        # print('Boosted Trees score: {}'.format(gbc.score(rdm_factors[:], satisficing[crit_idx]*1)))
+    gbc = GradientBoostingClassifier(n_estimators=n_trees,
+                                     learning_rate=0.1,
+                                     max_depth=tree_depth)
+
+    gbc.fit(rdm_factors, satisficing[crit_idx])
+    # print('Boosted Trees score: {}'.format(gbc.score(rdm_factors[:], satisficing[crit_idx]*1)))
 
     feature_importances = deepcopy(gbc.feature_importances_)
 
@@ -265,7 +263,7 @@ def open_exploration(utility, objective, time_period, factor1, factor2, ax):
     inputs:
         utility: str, the name of the utility to be plotted (Bedford or Greene)
         objective: str, the name of the objective to be plotted
-        time_period: str, "Long_term", "Mid_term" or "Short_term"
+        time_period: str, "long_term", "mid_term" or "short_term"
         factor1: str, the name of first factor to predict performance with
         factor2: str, the name of the second factor to predict performance with
         ax: the axis object to be plotted on
